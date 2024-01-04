@@ -111,7 +111,7 @@ public class RadioData {
 
     @Nullable
     private static String getValue(GameProfile gameProfile, String key) {
-        return gameProfile.getProperties().get(key).stream().map(Property::getValue).findFirst().orElse(null);
+        return gameProfile.getProperties().get(key).stream().map(Property::value).findFirst().orElse(null);
     }
 
     private static void putValue(GameProfile gameProfile, String key, String value) {
