@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Block.class)
 public class BlockMixin {
@@ -46,7 +47,7 @@ public class BlockMixin {
     }
 
     @Inject(method = "playerWillDestroy", at = @At(value = "HEAD"))
-    public void destroy(Level level, BlockPos blockPos, BlockState blockState, Player player, CallbackInfo ci) {
+    public void destroy(Level level, BlockPos blockPos, BlockState blockState, Player player, CallbackInfoReturnable<BlockState> cir) {
         if (level.isClientSide()) {
             return;
         }
