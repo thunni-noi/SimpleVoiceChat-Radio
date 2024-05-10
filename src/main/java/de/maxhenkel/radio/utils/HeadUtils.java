@@ -7,6 +7,7 @@ import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.util.UUIDTypeAdapter;
+import de.maxhenkel.radio.Radio;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -40,11 +41,13 @@ public class HeadUtils {
         );
 
         ItemLore lore = new ItemLore(loreComponents);
+        ResolvableProfile resolvableProfile = new ResolvableProfile(gameProfile);
 
         stack.set(DataComponents.ITEM_NAME, nameComponent);
         stack.set(DataComponents.LORE, lore);
         stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE); // why not a boolean? uhm?
-        stack.set(DataComponents.PROFILE, new ResolvableProfile(gameProfile));
+        stack.set(DataComponents.PROFILE, resolvableProfile);
+
         return stack;
     }
 
@@ -55,17 +58,13 @@ public class HeadUtils {
         PropertyMap properties = gameProfile.getProperties();
 
         List<Property> textures = new ArrayList<>();
-
-
         Map<MinecraftProfileTexture.Type, MinecraftProfileTexture> textureMap = new HashMap<>();
         textureMap.put(MinecraftProfileTexture.Type.SKIN, new MinecraftProfileTexture(skinUrl, null));
 
         String json = gson.toJson(new MinecraftTexturesPayload(textureMap));
-
         String base64Payload = Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
 
-        textures.add(new Property("Value", base64Payload));
-
+        textures.add(new Property("textures", base64Payload));
         properties.putAll("textures", textures);
 
         return gameProfile;

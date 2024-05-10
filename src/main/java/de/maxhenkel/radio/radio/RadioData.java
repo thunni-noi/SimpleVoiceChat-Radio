@@ -107,7 +107,7 @@ public class RadioData {
 
     public GameProfile toGameProfile() {
         GameProfile gameProfile = HeadUtils.getGameProfile(RADIO_ID, RADIO_NAME, Radio.SERVER_CONFIG.radioSkinUrl.get());
-        updateProfile(gameProfile);
+        this.updateProfile(gameProfile);
         return gameProfile;
     }
 
