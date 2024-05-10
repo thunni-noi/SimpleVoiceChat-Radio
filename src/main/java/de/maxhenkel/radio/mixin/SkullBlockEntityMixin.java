@@ -1,9 +1,10 @@
 package de.maxhenkel.radio.mixin;
 
-import com.mojang.authlib.GameProfile;
 import de.maxhenkel.radio.radio.RadioManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -22,14 +23,14 @@ public class SkullBlockEntityMixin extends BlockEntity {
     }
 
     @Inject(method = "setOwner", at = @At("RETURN"))
-    public void setOwner(GameProfile gameProfile, CallbackInfo ci) {
+    public void setOwner(ResolvableProfile resolvableProfile, CallbackInfo ci) {
         if (level != null && !level.isClientSide) {
             RadioManager.getInstance().onLoadHead((SkullBlockEntity) (Object) this);
         }
     }
 
-    @Inject(method = "load", at = @At("RETURN"))
-    public void load(CompoundTag compoundTag, CallbackInfo ci) {
+    @Inject(method = "loadAdditional", at = @At("RETURN"))
+    public void load(CompoundTag compoundTag, HolderLookup.Provider provider, CallbackInfo ci) {
         if (level != null && !level.isClientSide) {
             RadioManager.getInstance().onLoadHead((SkullBlockEntity) (Object) this);
         }

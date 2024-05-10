@@ -5,7 +5,9 @@ import de.maxhenkel.radio.Radio;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 
@@ -23,34 +25,45 @@ public class RadioManager {
     }
 
     public void onLoadHead(SkullBlockEntity skullBlockEntity) {
-        if (!(skullBlockEntity.getLevel() instanceof ServerLevel serverLevel)) {
+        if (!(skullBlockEntity.getLevel() instanceof ServerLevel serverLevel))
             return;
-        }
-        @Nullable GameProfile ownerProfile = skullBlockEntity.getOwnerProfile();
 
+        ResolvableProfile resolvableProfile = skullBlockEntity.getOwnerProfile();
+        if(resolvableProfile == null) return;
+
+        GameProfile ownerProfile = resolvableProfile.gameProfile();
         RadioData radioData = RadioData.fromGameProfile(ownerProfile);
-        if (radioData != null) {
-            // Set the UUID if none was present (block was just placed)
-            radioData.updateProfile(ownerProfile);
-            RadioStream radioStream = new RadioStream(radioData, serverLevel, skullBlockEntity.getBlockPos());
-            Radio.LOGGER.debug("Loaded radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
-            radioStream.init();
-            RadioStream oldStream = radioStreams.put(radioData.getId(), radioStream);
-            if (oldStream != null) {
-                oldStream.close();
-                Radio.LOGGER.warn("Replacing radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
-            }
+        if (radioData == null) return;
+
+        this.updateStoredRadioData(skullBlockEntity, serverLevel, radioData, ownerProfile);
+    }
+
+    private void updateStoredRadioData(SkullBlockEntity skullBlockEntity, ServerLevel serverLevel, RadioData radioData, GameProfile ownerProfile) {
+        // Set the UUID if none was present (block was just placed)
+        radioData.updateProfile(ownerProfile);
+        RadioStream radioStream = new RadioStream(radioData, serverLevel, skullBlockEntity.getBlockPos());
+        Radio.LOGGER.debug("Loaded radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
+        radioStream.init();
+        RadioStream oldStream = radioStreams.put(radioData.getId(), radioStream);
+
+        if (oldStream != null) {
+            oldStream.close();
+            Radio.LOGGER.warn("Replacing radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
         }
     }
 
     public static boolean isValidRadioLocation(UUID id, BlockPos pos, ServerLevel level) {
-        if (!level.isLoaded(pos)) {
+        if (!level.isLoaded(pos))
             return false;
-        }
-        if (!(level.getBlockEntity(pos) instanceof SkullBlockEntity skullBlockEntity)) {
+
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!(blockEntity instanceof SkullBlockEntity skullBlockEntity))
             return false;
-        }
-        @Nullable GameProfile ownerProfile = skullBlockEntity.getOwnerProfile();
+
+        ResolvableProfile resolvableProfile = skullBlockEntity.getOwnerProfile();
+        if(resolvableProfile == null) return false;
+
+        GameProfile ownerProfile = resolvableProfile.gameProfile();
         RadioData radioData = RadioData.fromGameProfile(ownerProfile);
         return radioData != null && radioData.getId().equals(id);
     }

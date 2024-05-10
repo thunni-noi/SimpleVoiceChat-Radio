@@ -6,9 +6,9 @@ import de.maxhenkel.radio.radio.RadioManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -24,25 +24,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(BlockBehaviour.class)
 public class BlockBehaviourMixin {
 
-    @Inject(method = "use", at = @At("HEAD"), cancellable = true)
-    public void use(BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult, CallbackInfoReturnable<InteractionResult> cir) {
-        if (level.isClientSide()) {
+    @Inject(method = "useWithoutItem", at = @At("HEAD"), cancellable = true)
+    public void use(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult, CallbackInfoReturnable<InteractionResult> cir) {
+        if (level.isClientSide())
             return;
-        }
-        if (!interactionHand.equals(InteractionHand.MAIN_HAND)) {
-            return;
-        }
-        if (!blockState.getBlock().equals(Blocks.PLAYER_HEAD) && !blockState.getBlock().equals(Blocks.PLAYER_WALL_HEAD)) {
-            return;
-        }
+
+        boolean isNotPlayerHeadBlock = !blockState.getBlock().equals(Blocks.PLAYER_HEAD) &&
+                                    !blockState.getBlock().equals(Blocks.PLAYER_WALL_HEAD);
+        if (isNotPlayerHeadBlock) return;
+
 
         BlockEntity blockEntity = level.getBlockEntity(blockPos);
 
-        if (!(blockEntity instanceof SkullBlockEntity skullBlockEntity)) {
+        if (!(blockEntity instanceof SkullBlockEntity skullBlockEntity))
             return;
-        }
 
-        GameProfile profile = skullBlockEntity.getOwnerProfile();
+        ResolvableProfile resolvable = skullBlockEntity.getOwnerProfile();
+
+        if(resolvable == null) return;
+
+        GameProfile profile = resolvable.gameProfile();
         RadioData radioData = RadioData.fromGameProfile(profile);
         if (radioData == null) {
             return;
