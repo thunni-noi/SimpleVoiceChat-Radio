@@ -22,6 +22,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PlayerHeadItem;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
 import java.nio.charset.StandardCharsets;
@@ -45,7 +46,8 @@ public class HeadUtils {
 
         stack.set(DataComponents.ITEM_NAME, nameComponent);
         stack.set(DataComponents.LORE, lore);
-        stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE); // why not a boolean? uhm?
+        //stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE); // why not a boolean? uhm?
+        stack.set(DataComponents.TOOLTIP_DISPLAY, new TooltipDisplay(true, new LinkedHashSet<>()));
         stack.set(DataComponents.PROFILE, resolvableProfile);
 
         return stack;
