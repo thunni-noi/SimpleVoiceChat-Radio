@@ -2,6 +2,7 @@ package de.maxhenkel.radio.radio;
 
 import com.mojang.authlib.GameProfile;
 import de.maxhenkel.radio.Radio;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
@@ -23,6 +24,18 @@ public class RadioManager {
     public RadioManager() {
         radioStreams = new HashMap<>();
     }
+
+    public void registerTickHandler(){
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (RadioStream stream : radioStreams.values()){
+                stream.updateNowPlayingOverlay();
+            }
+        });
+    }
+
+
+
+
 
     public void onLoadHead(SkullBlockEntity skullBlockEntity) {
         if (!(skullBlockEntity.getLevel() instanceof ServerLevel serverLevel))
