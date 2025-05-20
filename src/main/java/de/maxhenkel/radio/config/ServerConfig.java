@@ -10,6 +10,7 @@ public class ServerConfig {
     public final ConfigEntry<String> radioSkinUrl;
     public final ConfigEntry<Boolean> showMusicParticles;
     public final ConfigEntry<Long> musicParticleFrequency;
+    public final ConfigEntry<String> localMp3Folder;
 
     public ServerConfig(ConfigBuilder builder) {
         radioRange = builder.doubleEntry(
@@ -42,6 +43,11 @@ public class ServerConfig {
                 500L,
                 Long.MAX_VALUE,
                 "The frequency of the music particles in milliseconds"
+        );
+        localMp3Folder = builder.stringEntry(
+                "local_mp3_folder",
+                "./mp3_folder",
+                "Where mp3 are stored"
         );
     }
 

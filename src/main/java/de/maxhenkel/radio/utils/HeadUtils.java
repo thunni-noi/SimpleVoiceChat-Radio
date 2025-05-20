@@ -47,7 +47,7 @@ public class HeadUtils {
         stack.set(DataComponents.ITEM_NAME, nameComponent);
         stack.set(DataComponents.LORE, lore);
         //stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE); // why not a boolean? uhm?
-        stack.set(DataComponents.TOOLTIP_DISPLAY, new TooltipDisplay(true, new LinkedHashSet<>()));
+        //stack.set(DataComponents.TOOLTIP_DISPLAY, new TooltipDisplay(true, new LinkedHashSet<>()));
         stack.set(DataComponents.PROFILE, resolvableProfile);
 
         return stack;

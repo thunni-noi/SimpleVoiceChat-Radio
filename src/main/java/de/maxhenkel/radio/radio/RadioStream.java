@@ -2,6 +2,7 @@ package de.maxhenkel.radio.radio;
 
 import de.maxhenkel.radio.Radio;
 import de.maxhenkel.radio.RadioVoicechatPlugin;
+import de.maxhenkel.radio.utils.TrackHelper;
 import de.maxhenkel.voicechat.api.Position;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
@@ -14,12 +15,12 @@ import javazoom.jl.decoder.SampleBuffer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.awt.*;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
@@ -31,6 +32,7 @@ public class RadioStream implements Supplier<short[]> {
     private final UUID id;
     private final ServerLevel serverLevel;
     private final BlockPos position;
+    private TrackHelper trackHelper;
     @Nullable
     private LocationalAudioChannel channel;
     @Nullable
@@ -67,8 +69,11 @@ public class RadioStream implements Supplier<short[]> {
     }
 
     private void startInternal() throws IOException, URISyntaxException {
-        if (this.radioData.getUrl() == null) {
-            Radio.LOGGER.warn("Radio URL is null");
+        // load mp3
+        this.trackHelper = new TrackHelper();
+
+        if (trackHelper.mp3_lists == null || trackHelper.mp3_lists.length == 0){
+            Radio.LOGGER.error("Cannot load local mp3!");
             return;
         }
 
@@ -100,12 +105,78 @@ public class RadioStream implements Supplier<short[]> {
         this.bitstream = new Bitstream(new BufferedInputStream(input));
         this.decoder = new Decoder();
 
+        if(audioPlayer != null){
+            audioPlayer.setOnStopped(() -> {
+                Radio.LOGGER.debug("Stop radio");
+                serverLevel.getServer().execute(() ->{
+                    sendMessageProximity("§a[Radio] §cStop playing!");
+                });
+            });
+        }
+
+        loadNextTrack();
+
         if(audioPlayer == null) {
             Radio.LOGGER.error("Unable to start radio stream player -- audio player is null.");
             return;
         }
 
         this.audioPlayer.startPlaying();
+    }
+
+    private void loadNextTrack() throws FileNotFoundException {
+        if (this.trackHelper.track_queue.isEmpty()) {this.trackHelper.initialize_queue();}
+        this.trackHelper.update_queue();
+
+        // close previous stream
+        if(bitstream != null){
+            try {
+                bitstream.close();
+            } catch (Exception e){
+                Radio.LOGGER.warn("Can't close bitstream",e );
+            }
+            bitstream = null;
+        }
+
+        // reset old
+        this.decoder = new Decoder();
+        this.streamConverter = null;
+
+        // create new stream
+        FileInputStream inputStream = new FileInputStream(this.trackHelper.get_track_from_queue().track_getFileObj());
+        this.bitstream = new Bitstream(new BufferedInputStream(inputStream));
+
+        this.broadcastRadioStatus();
+    }
+
+    private void sendMessageProximity(String msg){
+        serverLevel.getServer().execute(() -> {
+            net.minecraft.network.chat.Component message = net.minecraft.network.chat.Component.literal(
+                    msg
+            );
+
+            for (ServerPlayer player: serverLevel.players()){
+                if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
+                    player.sendSystemMessage( message);
+
+                }
+            }
+        });
+    }
+    private void sendMessageLineBreak(){
+        sendMessageProximity("-----------------------------------------------");
+    }
+
+    private void broadcastRadioStatus(){
+        if (!this.trackHelper.track_queue.isEmpty()) {
+            TrackHelper.Track currentTrack = this.trackHelper.track_queue.getFirst();
+            TrackHelper.Track nextTrack = this.trackHelper.track_queue.getLast();
+            sendMessageLineBreak();
+            sendMessageProximity(String.format("§a[Radio] §fNow Playing §e%s - %s §b(%s)", currentTrack.track_getSongName(), currentTrack.track_getSongArtist(), currentTrack.track_getTimeStamp()));
+            sendMessageLineBreak();
+            sendMessageProximity(String.format("§a[Radio] §fUp Next - §d%s", nextTrack.track_getSongName()));
+            sendMessageLineBreak();
+        }
     }
 
     public void stop() {
@@ -160,7 +231,12 @@ public class RadioStream implements Supplier<short[]> {
 
             Header frameHeader = bitstream.readFrame();
             if (frameHeader == null) {
-                throw new IOException("End of stream");
+                loadNextTrack();
+
+                frameHeader = bitstream.readFrame();
+                if (frameHeader == null) { throw new IOException("End of stream"); }
+                //return new short[0];
+                //;
             }
 
             SampleBuffer output = (SampleBuffer) decoder.decodeFrame(frameHeader, bitstream);
@@ -175,9 +251,11 @@ public class RadioStream implements Supplier<short[]> {
             streamConverter.add(samples, 0, output.getBufferLength());
             return streamConverter.getFrame();
         } catch (Exception e) {
-            Radio.LOGGER.warn("Failed to stream audio from {}", radioData.getUrl(), e);
-            stop();
-            return null;
+            //Radio.LOGGER.warn("Failed to stream audio from {}", radioData.getUrl(), e);
+            Radio.LOGGER.warn("Failed to stream audio: {}", e.getMessage());
+            //stop();
+            return new short[0];
+            //return null;
         }
     }
 
