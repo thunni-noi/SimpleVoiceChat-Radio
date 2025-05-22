@@ -63,7 +63,7 @@ public class TrackHelper {
 
     // call this when previous song end
     public void queue_update(){
-        while (this.track_queue.size() < 2){
+        while (this.track_queue.size() < 3){
             this.track_queue.add(get_random_track());
         }
     }

@@ -13,17 +13,18 @@ import de.maxhenkel.voicechat.api.opus.OpusEncoderMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.level.levelgen.structure.structures.StrongholdPieces;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
 import javax.sound.sampled.*;
 import java.io.*;
-import java.util.ArrayDeque;
-import java.util.Queue;
-import java.util.UUID;
+import java.lang.reflect.Array;
+import java.util.*;
 import java.util.function.Supplier;
 
 public class RadioStream implements Supplier<short[]> {
@@ -54,12 +55,18 @@ public class RadioStream implements Supplier<short[]> {
     private long trackDurationMs = 0;
 
     // Track management
-    private final Queue<TrackHelper.Track> trackQueue = new ArrayDeque<>();
+    //private final Queue<TrackHelper.Track> trackQueue = new ArrayDeque<>();
+    //private final ArrayList<TrackHelper.Track> trackQueue = new ArrayList<>();
     private boolean isLoadingTrack = false;
 
     // Overlay
     private long overlayUpdateCounter = 0;
     private static final int OVERLAY_UPDATE_RATE = 20;
+    private final BossEvent.BossBarColor[] barColors = {BossEvent.BossBarColor.BLUE,
+            BossEvent.BossBarColor.RED, BossEvent.BossBarColor.WHITE, BossEvent.BossBarColor.GREEN,
+            BossEvent.BossBarColor.PINK, BossEvent.BossBarColor.PURPLE};
+    private ServerBossEvent bossBar;
+    private final Set<de.maxhenkel.voicechat.api.ServerPlayer> bossBarPlayers = new HashSet<>();
 
     public RadioStream(RadioData radioData, ServerLevel serverLevel, BlockPos position) {
         this.radioData = radioData;
@@ -128,7 +135,7 @@ public class RadioStream implements Supplier<short[]> {
         }
 
         // Initialize track queue and start playing
-        initializeTrackQueue();
+        this.trackHelper.queue_update();
         loadNextTrack();
 
         if (vcAudioPlayer == null) {
@@ -140,28 +147,34 @@ public class RadioStream implements Supplier<short[]> {
         Radio.LOGGER.info("Radio stream started successfully");
     }
 
-    private void initializeTrackQueue() {
-        this.trackHelper.queue_update();
 
-    }
 
     private void loadNextTrack() {
         if (isLoadingTrack) {
             return;
         }
 
-        while (trackQueue.size() <= 3){
-            trackQueue.offer(this.trackHelper.get_random_track());
-            Radio.LOGGER.info(trackQueue.peek().song_name);
-        }
+        trackHelper.queue_update();
 
-        TrackHelper.Track nextTrack = trackQueue.poll();
+        TrackHelper.Track nextTrack = trackHelper.queue_poll();
         Radio.LOGGER.info(nextTrack);
         if (nextTrack == null){
             return;
         }
 
         isLoadingTrack = true;
+
+        // refresh boss bar
+        if (this.bossBar != null){
+            bossBar.removeAllPlayers();
+            //§e♪ §b%s\n§7by §b%s §7[%02d:%02d/%02d:%02d]
+            String displayText = String.format("§e♪ §b%s §7- §b%s §7[00:00/%02d:%02d]",
+            currentTrack.song_name, currentTrack.song_author,
+            (trackDurationMs / 1000) / 60, (trackDurationMs / 1000) % 60);
+
+            bossBar.setName(Component.literal(displayText));
+            bossBar.setProgress(0.0f);
+        }
 
         // load track in another thread
         try {
@@ -349,20 +362,60 @@ public class RadioStream implements Supplier<short[]> {
             long durationMin = durationSeconds / 60;
             long durSec = durationSeconds % 60;
 
-            Component overlayMessage = Component.literal(
-                    String.format("§e♪ §b%s §f- §b%s §7[%02d:%02d/%02d:%02d]",
-                            currentTrack.song_name,
-                            currentTrack.song_author,
-                            elapsedMin, elapsedSec, durationMin, durSec)
-            );
+
 
             serverLevel.getServer().execute(() -> {
-                for (ServerPlayer player : serverLevel.players()) {
-                    if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
-                        player.displayClientMessage(overlayMessage, true);
-                    }
-                }
+                updateBossBar(elapsedMin, elapsedSec, durationMin, durSec, elapsedMs);
             });
+        }
+    }
+
+    private void updateBossBar(long elapsedMin, long elapsedSec, long durMin, long durSec, long elapsedMs){
+        if (currentTrack != null) {
+            String displayText = String.format("§e♪ §b%s §7by §b%s §7[%02d:%02d/%02d:%02d]",
+            currentTrack.song_name, currentTrack.song_author,
+            elapsedMin, elapsedSec, durMin, durSec);
+            if (this.bossBar == null) {
+
+
+                this.bossBar = new ServerBossEvent(
+                        Component.literal(displayText),
+                        barColors[new Random().nextInt(0,4)],
+                        BossEvent.BossBarOverlay.PROGRESS
+                );
+            } else {
+                // update
+                this.bossBar.setName(Component.literal(displayText));
+            }
+
+            if (trackDurationMs > 0){
+                float progress = Math.min(1.0f, (float) elapsedMs / trackDurationMs);
+                this.bossBar.setProgress(progress);
+            }
+
+            // set to player in range
+            HashSet<ServerPlayer> nearbyPlayers = new HashSet<>();
+            for (ServerPlayer player : serverLevel.players()) {
+                if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
+                    nearbyPlayers.add(player);
+                }
+            }
+
+            // remove if no longer near
+            for (ServerPlayer player : this.bossBar.getPlayers()) {
+                if (!nearbyPlayers.contains(player)){
+                    this.bossBar.removePlayer(player);
+                    //bossBarPlayers.remove(player);
+                }
+            }
+
+            // add if near
+            for (ServerPlayer player : nearbyPlayers) {
+                if (!this.bossBar.getPlayers().contains(player)) {
+                    bossBar.addPlayer(player);
+                    //bossBarPlayers.add((de.maxhenkel.voicechat.api.ServerPlayer) player);
+                }
+            }
         }
     }
 
@@ -387,12 +440,11 @@ public class RadioStream implements Supplier<short[]> {
         sendMessageProximity(String.format("§a[Radio] §fNow Playing §e%s - %s",
                 currentTrack.song_name, currentTrack.song_author));
         sendMessageLineBreak();
-
-        //String nextTrackName = "Loading...";
+        String nextTrackName = trackHelper.queue_peek(1).song_name;
         //if (!trackQueue.isEmpty()) {
         //    nextTrackName = new File(trackQueue.peek()).getName().replaceFirst("[.][^.]+$", "");
         //}
-        //sendMessageProximity(String.format("§a[Radio] §fUp Next - §d%s", nextTrackName));
+        sendMessageProximity(String.format("§a[Radio] §fUp Next - §d%s", nextTrackName));
         sendMessageLineBreak();
     }
 
@@ -403,10 +455,15 @@ public class RadioStream implements Supplier<short[]> {
             vcAudioPlayer = null;
         }
 
+        if (this.bossBar != null){
+            this.bossBar.removeAllPlayers();
+            this.bossBar = null;
+        }
+
         currentTrack = null;
         currentTrackAudio = null;
         audioPosition = 0;
-        trackQueue.clear();
+        //trackHelper.track_queue.clear();
         isLoadingTrack = false;
 
         Radio.LOGGER.debug("Stopped radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
