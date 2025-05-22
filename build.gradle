@@ -21,6 +21,10 @@ repositories {
     maven { url = 'https://maven.fabricmc.net/' }
     maven { url = 'https://maven.maxhenkel.de/repository/public' }
     maven {
+        name = "TarsosDSP repository"
+        url = "https://mvn.0110.be/releases"
+    }
+    maven {
         url = 'https://api.modrinth.com/maven'
         content {
             includeGroup "maven.modrinth"
@@ -68,6 +72,9 @@ dependencies {
     implementation "de.maxhenkel.configbuilder:configbuilder:${configbuilder_version}"
     shadow "de.maxhenkel.configbuilder:configbuilder:${configbuilder_version}"
 
+    implementation 'be.tarsos.dsp:core:2.5'
+    implementation 'be.tarsos.dsp:jvm:2.5'
+
     implementation "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
 
     modRuntimeOnly "maven.modrinth:simple-voice-chat:fabric-${voicechat_mod_version}"
@@ -77,6 +84,7 @@ dependencies {
     shadow "javazoom:jlayer:${jlayer_version}"
 
     implementation 'org:jaudiotagger:2.0.3'
+    implementation 'dev.arbjerg:lavaplayer:2.2.3'
 }
 
 processResources {

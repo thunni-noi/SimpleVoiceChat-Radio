@@ -6,7 +6,6 @@ import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.audio.AudioHeader;
 import org.jaudiotagger.tag.FieldKey;
-import org.jaudiotagger.tag.Tag;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,12 +31,15 @@ public class TrackHelper {
     public TrackHelper() throws IOException {
         track_queue = new ArrayList<Track>(2);
         load_folder();
-        initialize_queue();
+        queue_update();
     }
+
 
     public void load_folder(){
         mp3_folder = new File((Radio.SERVER_CONFIG.localMp3Folder.get()));
-        if (!mp3_folder.exists()) {mp3_folder.mkdirs();}
+        if (!mp3_folder.exists()) {
+            if(!mp3_folder.mkdirs()) {Radio.LOGGER.fatal("Cannot create directory!");};
+        }
         mp3_lists = mp3_folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp3"));
     }
 
@@ -54,68 +56,58 @@ public class TrackHelper {
     public ArrayList<String> get_all_available_track_name(){
         ArrayList<String> output = new ArrayList<String>();
         for (File file : this.mp3_lists){
-            output.add(new Track(file).track_getSongName());
+            output.add(new Track(file).song_name);
         }
         return output;
     }
 
-    // call this when click on radio
-    public void initialize_queue(){
-        if (this.track_queue.isEmpty()){
-            this.track_queue.add(get_random_track());
-            this.track_queue.add(get_random_track());
-        }
-        //return this.track_queue.getFirst();
-    }
-
     // call this when previous song end
-    public void update_queue(){
-        if(!this.track_queue.isEmpty()){
-            track_queue.removeFirst();
-            track_queue.add(get_random_track());
+    public void queue_update(){
+        while (this.track_queue.size() < 2){
+            this.track_queue.add(get_random_track());
         }
     }
 
-    public Track get_track_from_queue(){
-        return this.track_queue.getFirst();
+    public Track queue_poll(){
+        // return first value
+        Track out_track = track_queue.getFirst();
+        track_queue.removeFirst();
+        queue_update();
+        return out_track;
+    }
+
+    public Track queue_peek(int index){
+        return track_queue.get(index);
     }
 
     public static class Track{
-        File mp3_file;
-        String song_name;
-        String song_artist;
-        int song_duration;
+        public File mp3_file;
+        public String mp3_abspath;
+        public String song_name;
+        public String song_author;
+        public long song_length;
+
 
         private Track(File mp3_file){
             this.mp3_file = mp3_file;
-            // setting up metadata
+            this.mp3_abspath = mp3_file.getAbsolutePath().replace("\\.\\", "\\");
+            File test = new File(mp3_abspath);
+
+            //Radio.LOGGER.info("{} {}",mp3_abspath, Boolean.toString(test.exists()));
             try {
-                AudioFile track_file = AudioFileIO.read(this.mp3_file);
-                Tag track_tags = track_file.getTag();
-                AudioHeader audioHeader = track_file.getAudioHeader();
+                AudioFile audioFile = AudioFileIO.read(mp3_file);
+                AudioHeader audioHeader = audioFile.getAudioHeader();
+                song_name = audioFile.getTag().getFirst(FieldKey.TITLE);
+                song_author = audioFile.getTag().getFirst(FieldKey.ARTIST);
+                song_length = audioHeader.getTrackLength();
 
-                this.song_name = track_tags.getFirst(FieldKey.TITLE);
-                this.song_artist = track_tags.getFirst(FieldKey.ARTIST);
-
-                this.song_duration = Integer.parseInt(String.valueOf(audioHeader.getTrackLength()));
-
-            }
-            catch (Exception e){
-                // default case
-                song_name =  mp3_file.getName();
-                song_artist = "Unknown";
-                song_duration = 60;
-                Radio.LOGGER.error(e);
+            } catch (Exception e){
+                Radio.LOGGER.warn("Cannot load mp3 through jaudiotagger");
+                song_name = "Unknown";
             }
 
         }
 
-        public File track_getFileObj() { return  this.mp3_file; }
-        public String track_getSongName() { return this.song_name; }
-        public String track_getSongArtist() { return  this.song_artist; }
-        public int track_getSongDuration() { return  this.song_duration; }
-        public String track_getTimeStamp(){
-            return String.format("%02d:%02d", this.song_duration / 60, this.song_duration % 60);
-        }
+
     }
 }
