@@ -24,7 +24,7 @@ public class Radio implements ModInitializer {
     @Override
     public void onInitialize() {
         SERVER_CONFIG = ConfigBuilder.build(FabricLoader.getInstance().getConfigDir().resolve(MODID).resolve("radio.properties"), ServerConfig::new);
-        Configurator.setLevel(LOGGER, Level.WARN);
+        Configurator.setLevel(LOGGER, Level.INFO);
         RadioManager.getInstance().registerTickHandler();
         ServerLifecycleEvents.SERVER_STOPPING.register(LifecycleEvents::onServerStopping);
         CommandRegistrationCallback.EVENT.register(RadioCommands::register);

@@ -8,7 +8,6 @@ import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
 import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
 import de.maxhenkel.voicechat.api.mp3.Mp3Decoder;
-import de.maxhenkel.voicechat.api.mp3.Mp3Encoder;
 import de.maxhenkel.voicechat.api.opus.OpusEncoderMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -17,13 +16,11 @@ import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.BossEvent;
-import net.minecraft.world.level.levelgen.structure.structures.StrongholdPieces;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
 import javax.sound.sampled.*;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -33,7 +30,7 @@ public class RadioStream implements Supplier<short[]> {
     private final UUID id;
     private final ServerLevel serverLevel;
     private final BlockPos position;
-    private TrackHelper trackHelper;
+    private TrackHelper.QueueManager queueManager;
 
     // Voicechat components
     @Nullable
@@ -93,9 +90,9 @@ public class RadioStream implements Supplier<short[]> {
 
     private void startInternal() throws IOException {
         // Load track helper
-        this.trackHelper = new TrackHelper();
+        this.queueManager = new TrackHelper.QueueManager();
 
-        if (trackHelper.mp3_lists == null || trackHelper.mp3_lists.length == 0) {
+        if (queueManager.all_track == null || queueManager.all_track.isEmpty()) {
             Radio.LOGGER.error("Cannot load local mp3!");
             return;
         }
@@ -135,7 +132,7 @@ public class RadioStream implements Supplier<short[]> {
         }
 
         // Initialize track queue and start playing
-        this.trackHelper.queue_update();
+        this.queueManager.update();
         loadNextTrack();
 
         if (vcAudioPlayer == null) {
@@ -154,9 +151,9 @@ public class RadioStream implements Supplier<short[]> {
             return;
         }
 
-        trackHelper.queue_update();
+        //queueManager.update();
 
-        TrackHelper.Track nextTrack = trackHelper.queue_poll();
+        TrackHelper.Track nextTrack = queueManager.poll();
         Radio.LOGGER.info(nextTrack);
         if (nextTrack == null){
             return;
@@ -440,10 +437,7 @@ public class RadioStream implements Supplier<short[]> {
         sendMessageProximity(String.format("§a[Radio] §fNow Playing §e%s - %s",
                 currentTrack.song_name, currentTrack.song_author));
         sendMessageLineBreak();
-        String nextTrackName = trackHelper.queue_peek(1).song_name;
-        //if (!trackQueue.isEmpty()) {
-        //    nextTrackName = new File(trackQueue.peek()).getName().replaceFirst("[.][^.]+$", "");
-        //}
+        String nextTrackName = queueManager.peek(0).song_name;
         sendMessageProximity(String.format("§a[Radio] §fUp Next - §d%s", nextTrackName));
         sendMessageLineBreak();
     }

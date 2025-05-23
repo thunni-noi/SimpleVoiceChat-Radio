@@ -19,20 +19,18 @@ public class RadioData {
     public static final String RADIO_NAME = "Radio";
 
     public static final String ID_TAG = "id";
-    public static final String STREAM_URL_TAG = "stream_url";
     public static final String STATION_NAME_TAG = "station_name";
     public static final String ON_TAG = "on";
     public static final String RANGE_TAG = "range";
 
     private final UUID id;
-    private String url;
     private String stationName;
     private boolean on;
     private float range;
 
-    public RadioData(UUID id, String url, String stationName, boolean on, float range) {
+    public RadioData(UUID id, String stationName, boolean on, float range) {
         this.id = id;
-        this.url = url;
+
         this.stationName = stationName;
         this.on = on;
         this.range = range;
@@ -47,9 +45,6 @@ public class RadioData {
         return id;
     }
 
-    public String getUrl() {
-        return url;
-    }
 
     public String getStationName() {
         return stationName;
@@ -61,10 +56,6 @@ public class RadioData {
 
     public float getRange() {
         return this.range;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
     }
 
     public void setStationName(String stationName) {
@@ -97,7 +88,6 @@ public class RadioData {
 
         RadioData radioData = new RadioData(uuid);
 
-        radioData.url = getValue(gameProfile, STREAM_URL_TAG);
         radioData.stationName = getValue(gameProfile, STATION_NAME_TAG);
         radioData.on = Boolean.parseBoolean(getValue(gameProfile, ON_TAG));
         radioData.range = getFloatValueOrElse(gameProfile, RANGE_TAG, -1.0f);
@@ -118,7 +108,6 @@ public class RadioData {
             putValue(gameProfile, ID_TAG, this.id.toString());
         }
 
-        putValue(gameProfile, STREAM_URL_TAG, this.url);
         putValue(gameProfile, STATION_NAME_TAG, this.stationName);
         putValue(gameProfile, ON_TAG, String.valueOf(this.on));
         putValue(gameProfile, RANGE_TAG, String.valueOf(this.range));
@@ -160,7 +149,7 @@ public class RadioData {
 
     private static ItemStack createRadio(RadioData radioData) {
         return HeadUtils.createHead(
-                RADIO_NAME,
+                radioData.stationName,
                 Collections.singletonList(
                         Component.literal(radioData.stationName)
                                  .withStyle(style -> style.withItalic(false))
@@ -171,7 +160,7 @@ public class RadioData {
     }
 
     public ItemStack toItemWithNoId() {
-        RadioData radioData = new RadioData(Util.NIL_UUID, this.url, this.stationName, false, this.range);
+        RadioData radioData = new RadioData(Util.NIL_UUID, this.stationName, false, this.range);
         return createRadio(radioData);
     }
 
