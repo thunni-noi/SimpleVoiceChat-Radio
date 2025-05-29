@@ -20,6 +20,7 @@ repositories {
     mavenCentral()
     maven { url = 'https://maven.fabricmc.net/' }
     maven { url = 'https://maven.maxhenkel.de/repository/public' }
+    maven {url = 'https://maven.ladysnake.org/releases'}
     maven {
         name = "TarsosDSP repository"
         url = "https://mvn.0110.be/releases"
@@ -54,7 +55,8 @@ runClient.doFirst {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings loom.officialMojangMappings()
+    //mappings loom.officialMojangMappings()
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
 
     Set<String> apiModules = [
@@ -74,7 +76,9 @@ dependencies {
 
     implementation 'be.tarsos.dsp:core:2.5'
     implementation 'be.tarsos.dsp:jvm:2.5'
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.19.0'
+
+    modImplementation "org.ladysnake.cardinal-components-api:cardinal-components-base:6.3.1"
+    modImplementation "org.ladysnake.cardinal-components-api:cardinal-components-entity:6.3.1"
 
     implementation "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
 

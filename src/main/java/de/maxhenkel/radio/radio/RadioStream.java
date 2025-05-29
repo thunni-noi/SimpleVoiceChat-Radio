@@ -92,7 +92,7 @@ public class RadioStream implements Supplier<short[]> {
         // Load track helper
         this.queueManager = new TrackHelper.QueueManager();
 
-        if (queueManager.all_track == null || queueManager.all_track.isEmpty()) {
+        if (queueManager.tracks_allLoaded == null || queueManager.tracks_allLoaded.isEmpty()) {
             Radio.LOGGER.error("Cannot load local mp3!");
             return;
         }
@@ -166,7 +166,7 @@ public class RadioStream implements Supplier<short[]> {
             bossBar.removeAllPlayers();
             //§e♪ §b%s\n§7by §b%s §7[%02d:%02d/%02d:%02d]
             String displayText = String.format("§e♪ §b%s §7- §b%s §7[00:00/%02d:%02d]",
-            currentTrack.song_name, currentTrack.song_author,
+            currentTrack.track_title, currentTrack.track_artist,
             (trackDurationMs / 1000) / 60, (trackDurationMs / 1000) % 60);
 
             bossBar.setName(Component.literal(displayText));
@@ -185,9 +185,9 @@ public class RadioStream implements Supplier<short[]> {
 
 
     private void loadTrackInternal(TrackHelper.Track track) throws IOException {
-        Radio.LOGGER.info("Loading track {}", track.song_name);
+        Radio.LOGGER.info("Loading track {}", track.track_title);
 
-        File trackFile = track.mp3_file;
+        File trackFile = track.track_file;
         if (trackFile == null || !trackFile.exists()) {
             throw new IOException("Track file does not exist : " + trackFile);
         }
@@ -232,9 +232,9 @@ public class RadioStream implements Supplier<short[]> {
         }
     }
 
-    /**
-     * Convert audio to 48kHz mono format for voice chat compatibility
-     */
+
+    // convert audio to 48kHz mono format for voice chat compatibility
+
     private short[] convertAudioFormat(short[] audioData, AudioFormat originalFormat) {
         float originalSampleRate = originalFormat.getSampleRate();
         int originalChannels = originalFormat.getChannels();
@@ -260,9 +260,7 @@ public class RadioStream implements Supplier<short[]> {
         return processedData;
     }
 
-    /**
-     * Convert stereo audio to mono by averaging left and right channels
-     */
+    // convert streo to mono
     private short[] stereoToMono(short[] stereoData) {
         short[] monoData = new short[stereoData.length / 2];
 
@@ -275,9 +273,7 @@ public class RadioStream implements Supplier<short[]> {
         return monoData;
     }
 
-    /**
-     * Simple linear interpolation resampling
-     */
+    // resampling
     private short[] resampleAudio(short[] inputData, float inputSampleRate, float outputSampleRate) {
         if (inputSampleRate == outputSampleRate) {
             return inputData;
@@ -370,7 +366,7 @@ public class RadioStream implements Supplier<short[]> {
     private void updateBossBar(long elapsedMin, long elapsedSec, long durMin, long durSec, long elapsedMs){
         if (currentTrack != null) {
             String displayText = String.format("§e♪ §b%s §7by §b%s §7[%02d:%02d/%02d:%02d]",
-            currentTrack.song_name, currentTrack.song_author,
+            currentTrack.track_title, currentTrack.track_artist,
             elapsedMin, elapsedSec, durMin, durSec);
             if (this.bossBar == null) {
 
@@ -393,6 +389,7 @@ public class RadioStream implements Supplier<short[]> {
             // set to player in range
             HashSet<ServerPlayer> nearbyPlayers = new HashSet<>();
             for (ServerPlayer player : serverLevel.players()) {
+
                 if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
                     nearbyPlayers.add(player);
                 }
@@ -435,9 +432,9 @@ public class RadioStream implements Supplier<short[]> {
         sendMessageLineBreak();
         assert currentTrack != null;
         sendMessageProximity(String.format("§a[Radio] §fNow Playing §e%s - %s",
-                currentTrack.song_name, currentTrack.song_author));
+                currentTrack.track_title, currentTrack.track_artist));
         sendMessageLineBreak();
-        String nextTrackName = queueManager.peek(0).song_name;
+        String nextTrackName = queueManager.peek(0).track_title;
         sendMessageProximity(String.format("§a[Radio] §fUp Next - §d%s", nextTrackName));
         sendMessageLineBreak();
     }
@@ -470,7 +467,14 @@ public class RadioStream implements Supplier<short[]> {
             return;
         }
         long time = System.currentTimeMillis();
-        if (time - lastParticle < Radio.SERVER_CONFIG.musicParticleFrequency.get()) {
+        float particle_delay;
+        if (currentTrack != null){
+            particle_delay = (60000 / currentTrack.track_bpm) * 2;
+        } else {
+            particle_delay = Radio.SERVER_CONFIG.musicParticleFrequency.get();
+        }
+
+        if (time - lastParticle < particle_delay) {
             return;
         }
         lastParticle = time;

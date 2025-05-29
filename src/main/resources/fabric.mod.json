@@ -18,6 +18,9 @@
     ],
     "voicechat": [
       "de.maxhenkel.radio.RadioVoicechatPlugin"
+    ],
+    "cardinal-components-entity" : [
+      "de.maxhenkel.radio.components.RadioSettingComponents"
     ]
   },
   "mixins": [

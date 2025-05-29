@@ -8,10 +8,7 @@ import org.jaudiotagger.audio.AudioHeader;
 import org.jaudiotagger.tag.FieldKey;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,13 +27,15 @@ public class TrackHelper {
     public String mp3FolderPath = Radio.SERVER_CONFIG.localMp3Folder.get();
     public File mp3_folder;
     public File[] mp3_lists;
-    public ArrayList<Track> all_track = new ArrayList<Track>();
-    public ArrayList<Track> track_queue = new ArrayList<Track>();
+    public ArrayList<Track> tracks_allLoaded = new ArrayList<Track>();
+    public ArrayList<Track> tracks_enabled = new ArrayList<>();
+    public ArrayList<Track> track_queue;
+    public TrackJsonUtils jsonUtils = new TrackJsonUtils(mp3FolderPath + "/tracksInfo.json");
 
     public TrackHelper() {
         track_queue = new ArrayList<Track>(2);
         load_folder(mp3FolderPath);
-        load_track_noJson();
+        load_track_fromJson();
     }
 
 
@@ -48,12 +47,33 @@ public class TrackHelper {
         mp3_lists = mp3_folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp3"));
     }
 
+
     private void load_track_noJson(){
         for (File mp3file : this.mp3_lists){
             Track loaded_track = new Track(mp3file);
-            if (loaded_track.song_valid){
-                this.all_track.add(loaded_track);
+            this.tracks_allLoaded.add(loaded_track);
+            Radio.LOGGER.info("Loaded manually");
+        }
+        this.tracks_enabled.addAll(this.tracks_allLoaded);
+        jsonUtils.saveTrackJson(this.tracks_allLoaded);
+
+    }
+
+    private void load_track_fromJson(){
+        ArrayList<Track> loaded_track = jsonUtils.readTrackJson();
+        if (loaded_track != null) {
+            this.tracks_allLoaded = loaded_track;
+            Radio.LOGGER.info("Loaded from JSON!");
+
+            for (Track track : this.tracks_allLoaded){
+                if (track.track_enabled){
+                    this.tracks_enabled.add(track);
+                }
             }
+
+        }
+        else {
+            load_track_noJson();
         }
     }
 
@@ -62,7 +82,7 @@ public class TrackHelper {
     public Track get_random_track(){
         if (this.mp3_lists != null) {
             int index = track_randomizer.nextInt(this.mp3_lists.length);
-            return (this.all_track.get(index));
+            return (this.tracks_allLoaded.get(index));
         }
         Radio.LOGGER.error("MP3 Folder hasn't load yet!");
         return null;
@@ -71,7 +91,7 @@ public class TrackHelper {
     public ArrayList<String> get_all_available_track_name(){
         ArrayList<String> output = new ArrayList<String>();
         for (File file : this.mp3_lists){
-            output.add(new Track(file).song_name);
+            output.add(new Track(file).track_title);
         }
         return output;
     }
@@ -113,43 +133,47 @@ public class TrackHelper {
 
 
     public static class Track{
-        public File mp3_file;
-        public String mp3_abspath;
-        public String song_name;
-        public String song_author;
-        public long song_length;
-        public long song_bpm;
-        public boolean song_valid = false;
+        public transient File track_file;
+        public String track_path;
+        public String track_title;
+        public String track_artist;
+        public long track_durations;
+        public float track_bpm;
+        public boolean track_enabled = false;
 
 
-        private Track(File mp3_file){
-            this.mp3_file = mp3_file;
-            this.mp3_abspath = mp3_file.getAbsolutePath().replace("\\.\\", "\\");
+        private Track(File track_file){
+            this.track_file = track_file;
+            this.track_path = track_file.getAbsolutePath().replace("\\.\\", "\\");
 
             //Radio.LOGGER.info("{} {}",mp3_abspath, Boolean.toString(test.exists()));
             try {
-                AudioFile audioFile = AudioFileIO.read(mp3_file);
+                AudioFile audioFile = AudioFileIO.read(track_file);
                 AudioHeader audioHeader = audioFile.getAudioHeader();
-                song_name = audioFile.getTag().getFirst(FieldKey.TITLE);
-                song_author = audioFile.getTag().getFirst(FieldKey.ARTIST);
-                song_length = audioHeader.getTrackLength();
-                song_bpm = 2000;
-                song_valid = true;
+                track_title = audioFile.getTag().getFirst(FieldKey.TITLE);
+                track_artist = audioFile.getTag().getFirst(FieldKey.ARTIST);
+                track_durations = audioHeader.getTrackLength();
+                track_bpm = 80;
+                track_enabled = true;
 
             } catch (Exception e) {
                 Radio.LOGGER.warn("Cannot load mp3 through jaudiotagger");
-                song_valid = false;
+                track_enabled = false;
             }
 
         }
 
-        private Track(File mp3_file, String song_title, String song_author, long song_length, long song_bpm){
-            song_valid = true;
-            this.mp3_file = mp3_file;
-            this.song_name = song_title;
-            this.song_author = song_author;
-            this.song_length = song_length;
-            this.song_bpm = song_bpm;
+        public Track(String track_path, String track_title, String track_artist, long track_durations, long track_bpm, boolean track_enabled){
+            this.track_path = track_path;
+            this.track_title = track_title;
+            this.track_artist = track_artist;
+            this.track_durations = track_durations;
+            this.track_bpm = track_bpm;
+            this.track_enabled = track_enabled;
+        }
+
+        public void loadFile(){
+            this.track_file = new File(this.track_path);
         }
 
 
