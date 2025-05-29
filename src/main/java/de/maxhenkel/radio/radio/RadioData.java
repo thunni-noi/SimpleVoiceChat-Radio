@@ -5,10 +5,11 @@ import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import de.maxhenkel.radio.Radio;
 import de.maxhenkel.radio.utils.HeadUtils;
-import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.text.Style;
+import net.minecraft.util.Formatting;
+import net.minecraft.util.Util;
+import net.minecraft.text.Text;
+import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -151,9 +152,8 @@ public class RadioData {
         return HeadUtils.createHead(
                 radioData.stationName,
                 Collections.singletonList(
-                        Component.literal(radioData.stationName)
-                                 .withStyle(style -> style.withItalic(false))
-                                 .withStyle(ChatFormatting.GRAY)
+                        Text.literal(radioData.stationName)
+                                 .setStyle(Style.EMPTY.withColor(Formatting.GOLD).withBold(true))
                 ),
                 radioData.toGameProfile()
         );

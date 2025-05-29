@@ -3,16 +3,15 @@ package de.maxhenkel.radio.radio;
 import com.mojang.authlib.GameProfile;
 import de.maxhenkel.radio.Radio;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.SkullBlockEntity;
-import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.SkullBlockEntity;
+import net.minecraft.world.chunk.WorldChunk;
 
-import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -38,23 +37,23 @@ public class RadioManager {
 
 
     public void onLoadHead(SkullBlockEntity skullBlockEntity) {
-        if (!(skullBlockEntity.getLevel() instanceof ServerLevel serverLevel))
+        if (!(skullBlockEntity.getWorld() instanceof ServerWorld serverWorld))
             return;
 
-        ResolvableProfile resolvableProfile = skullBlockEntity.getOwnerProfile();
+        ProfileComponent resolvableProfile = skullBlockEntity.getOwner();
         if(resolvableProfile == null) return;
 
         GameProfile ownerProfile = resolvableProfile.gameProfile();
         RadioData radioData = RadioData.fromGameProfile(ownerProfile);
         if (radioData == null) return;
 
-        this.updateStoredRadioData(skullBlockEntity, serverLevel, radioData, ownerProfile);
+        this.updateStoredRadioData(skullBlockEntity, serverWorld, radioData, ownerProfile);
     }
 
-    private void updateStoredRadioData(SkullBlockEntity skullBlockEntity, ServerLevel serverLevel, RadioData radioData, GameProfile ownerProfile) {
+    private void updateStoredRadioData(SkullBlockEntity skullBlockEntity, ServerWorld serverLevel, RadioData radioData, GameProfile ownerProfile) {
         // Set the UUID if none was present (block was just placed)
         radioData.updateProfile(ownerProfile);
-        RadioStream radioStream = new RadioStream(radioData, serverLevel, skullBlockEntity.getBlockPos());
+        RadioStream radioStream = new RadioStream(radioData, serverLevel, skullBlockEntity.getPos());
         Radio.LOGGER.debug("Loaded radio stream for '{}' ({})", radioData.getStationName(), radioData.getId());
         radioStream.init();
         RadioStream oldStream = radioStreams.put(radioData.getId(), radioStream);
@@ -65,15 +64,15 @@ public class RadioManager {
         }
     }
 
-    public static boolean isValidRadioLocation(UUID id, BlockPos pos, ServerLevel level) {
-        if (!level.isLoaded(pos))
+    public static boolean isValidRadioLocation(UUID id, BlockPos pos, ServerWorld world) {
+        if (!world.isPosLoaded(pos))
             return false;
 
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        BlockEntity blockEntity = world.getBlockEntity(pos);
         if (!(blockEntity instanceof SkullBlockEntity skullBlockEntity))
             return false;
 
-        ResolvableProfile resolvableProfile = skullBlockEntity.getOwnerProfile();
+        ProfileComponent resolvableProfile = skullBlockEntity.getOwner();
         if(resolvableProfile == null) return false;
 
         GameProfile ownerProfile = resolvableProfile.gameProfile();
@@ -110,9 +109,9 @@ public class RadioManager {
         }
     }
 
-    public void onChunkUnload(ServerLevel serverLevel, LevelChunk levelChunk) {
+    public void onChunkUnload(ServerWorld serverWorld, WorldChunk worldChunk) {
         radioStreams.values().removeIf(radioStream -> {
-            boolean remove = radioStream.getServerLevel().dimension().equals(serverLevel.dimension()) && isInChunk(radioStream.getPosition(), levelChunk.getPos());
+            boolean remove = radioStream.getServerWorld().getDimension().equals(serverWorld.getDimension()) && isInChunk(radioStream.getPosition(), worldChunk.getPos());
             if (remove) {
                 radioStream.close();
             }
@@ -121,8 +120,8 @@ public class RadioManager {
     }
 
     private static boolean isInChunk(BlockPos pos, ChunkPos chunkPos) {
-        int chunkX = SectionPos.blockToSectionCoord(pos.getX());
-        int chunkZ = SectionPos.blockToSectionCoord(pos.getZ());
+        int chunkX = ChunkSectionPos.getSectionCoord(pos.getX());
+        int chunkZ = ChunkSectionPos.getSectionCoord(pos.getZ());
         return chunkX == chunkPos.x && chunkZ == chunkPos.z;
     }
 

@@ -1,15 +1,17 @@
 package de.maxhenkel.radio.mixin;
 
 import de.maxhenkel.radio.radio.RadioManager;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.entity.SkullBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.world.World;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.PlayerSkullBlock;
+import net.minecraft.block.WallPlayerSkullBlock;
+import net.minecraft.block.entity.SkullBlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.block.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,24 +25,24 @@ public class SkullBlockEntityMixin extends BlockEntity {
     }
 
     @Inject(method = "setOwner", at = @At("RETURN"))
-    public void setOwner(ResolvableProfile resolvableProfile, CallbackInfo ci) {
-        if (level != null && !level.isClientSide) {
+    public void setOwner(ProfileComponent resolvableProfile, CallbackInfo ci) {
+        if (world != null && !world.isClient) {
             RadioManager.getInstance().onLoadHead((SkullBlockEntity) (Object) this);
         }
     }
 
-    @Inject(method = "loadAdditional", at = @At("RETURN"))
-    public void load(CompoundTag compoundTag, HolderLookup.Provider provider, CallbackInfo ci) {
-        if (level != null && !level.isClientSide) {
+    @Inject(method = "readNbt", at = @At("RETURN"))
+    public void load(NbtCompound nbt, RegistryWrapper.WrapperLookup registries, CallbackInfo ci) {
+        if (world != null && !world.isClient) {
             RadioManager.getInstance().onLoadHead((SkullBlockEntity) (Object) this);
         }
     }
 
     @Override
-    public void setLevel(Level newLevel) {
-        Level oldLevel = level;
-        super.setLevel(newLevel);
-        if (oldLevel == null && newLevel != null && !newLevel.isClientSide) {
+    public void setWorld(World newWorld) {
+        World oldLevel = world;
+        super.setWorld(newWorld);
+        if (oldLevel == null && newWorld != null && !newWorld.isClient) {
             RadioManager.getInstance().onLoadHead((SkullBlockEntity) (Object) this);
         }
     }

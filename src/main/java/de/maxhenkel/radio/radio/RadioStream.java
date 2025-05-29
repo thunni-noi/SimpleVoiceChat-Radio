@@ -9,14 +9,14 @@ import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
 import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
 import de.maxhenkel.voicechat.api.mp3.Mp3Decoder;
 import de.maxhenkel.voicechat.api.opus.OpusEncoderMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerBossEvent;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.BossEvent;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.particle.ParticleTypes;
+import net.minecraft.text.Text;
+import net.minecraft.entity.boss.ServerBossBar;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.entity.boss.BossBar;
+import net.minecraft.util.math.Vec3d;
 
 import javax.annotation.Nullable;
 import javax.sound.sampled.*;
@@ -28,7 +28,7 @@ public class RadioStream implements Supplier<short[]> {
 
     private final RadioData radioData;
     private final UUID id;
-    private final ServerLevel serverLevel;
+    private final ServerWorld serverWorld;
     private final BlockPos position;
     private TrackHelper.QueueManager queueManager;
 
@@ -59,16 +59,16 @@ public class RadioStream implements Supplier<short[]> {
     // Overlay
     private long overlayUpdateCounter = 0;
     private static final int OVERLAY_UPDATE_RATE = 20;
-    private final BossEvent.BossBarColor[] barColors = {BossEvent.BossBarColor.BLUE,
-            BossEvent.BossBarColor.RED, BossEvent.BossBarColor.WHITE, BossEvent.BossBarColor.GREEN,
-            BossEvent.BossBarColor.PINK, BossEvent.BossBarColor.PURPLE};
-    private ServerBossEvent bossBar;
+    private final BossBar.Color[] barColors = {BossBar.Color.BLUE,
+            BossBar.Color.RED, BossBar.Color.WHITE, BossBar.Color.GREEN,
+            BossBar.Color.PINK, BossBar.Color.PURPLE};
+    private ServerBossBar bossBar;
     private final Set<de.maxhenkel.voicechat.api.ServerPlayer> bossBarPlayers = new HashSet<>();
 
-    public RadioStream(RadioData radioData, ServerLevel serverLevel, BlockPos position) {
+    public RadioStream(RadioData radioData, ServerWorld serverWorld, BlockPos position) {
         this.radioData = radioData;
         this.id = radioData.getId();
-        this.serverLevel = serverLevel;
+        this.serverWorld = serverWorld;
         this.position = position;
     }
 
@@ -109,7 +109,7 @@ public class RadioStream implements Supplier<short[]> {
         }
 
         // Create voicechat channel
-        de.maxhenkel.voicechat.api.ServerLevel level = vcApi.fromServerLevel(this.serverLevel);
+        de.maxhenkel.voicechat.api.ServerLevel level = vcApi.fromServerLevel(this.serverWorld);
         Position pos = vcApi.createPosition(this.position.getX() + 0.5D, this.position.getY() + 0.5D, this.position.getZ() + 0.5D);
         this.vcChannel = vcApi.createLocationalAudioChannel(UUID.randomUUID(), level, pos);
 
@@ -125,7 +125,7 @@ public class RadioStream implements Supplier<short[]> {
         if (vcAudioPlayer != null) {
             vcAudioPlayer.setOnStopped(() -> {
                 Radio.LOGGER.debug("Stop radio");
-                serverLevel.getServer().execute(() -> {
+                serverWorld.getServer().execute(() -> {
                     sendMessageProximity("§a[Radio] §cStop playing!");
                 });
             });
@@ -163,14 +163,14 @@ public class RadioStream implements Supplier<short[]> {
 
         // refresh boss bar
         if (this.bossBar != null){
-            bossBar.removeAllPlayers();
+            bossBar.clearPlayers();
             //§e♪ §b%s\n§7by §b%s §7[%02d:%02d/%02d:%02d]
             String displayText = String.format("§e♪ §b%s §7- §b%s §7[00:00/%02d:%02d]",
             currentTrack.track_title, currentTrack.track_artist,
             (trackDurationMs / 1000) / 60, (trackDurationMs / 1000) % 60);
 
-            bossBar.setName(Component.literal(displayText));
-            bossBar.setProgress(0.0f);
+            bossBar.setName(Text.literal(displayText));
+            bossBar.setPercent(0.0f);
         }
 
         // load track in another thread
@@ -217,7 +217,7 @@ public class RadioStream implements Supplier<short[]> {
             float durationSeconds = processedAudioData.length / 48000.0f;
             trackDurationMs = (long) (durationSeconds * 1000);
 
-            serverLevel.getServer().execute(() -> {
+            serverWorld.getServer().execute(() -> {
                 currentTrack = track;
                 currentTrackAudio = processedAudioData;
                 audioPosition = 0;
@@ -314,7 +314,7 @@ public class RadioStream implements Supplier<short[]> {
             if (audioPosition >= currentTrackAudio.length){
                 if (!isLoadingTrack){
                     Radio.LOGGER.debug("Track finished, loading new...");
-                    serverLevel.getServer().execute(this::loadNextTrack);
+                    serverWorld.getServer().execute(this::loadNextTrack);
                 }
                 return new short[SIMPLEVC_FRAME_SIZE];
             }
@@ -357,7 +357,7 @@ public class RadioStream implements Supplier<short[]> {
 
 
 
-            serverLevel.getServer().execute(() -> {
+            serverWorld.getServer().execute(() -> {
                 updateBossBar(elapsedMin, elapsedSec, durationMin, durSec, elapsedMs);
             });
         }
@@ -371,32 +371,32 @@ public class RadioStream implements Supplier<short[]> {
             if (this.bossBar == null) {
 
 
-                this.bossBar = new ServerBossEvent(
-                        Component.literal(displayText),
+                this.bossBar = new ServerBossBar(
+                        Text.literal(displayText),
                         barColors[new Random().nextInt(0,4)],
-                        BossEvent.BossBarOverlay.PROGRESS
+                        BossBar.Style.PROGRESS
                 );
             } else {
                 // update
-                this.bossBar.setName(Component.literal(displayText));
+                this.bossBar.setName(Text.literal(displayText));
             }
 
             if (trackDurationMs > 0){
                 float progress = Math.min(1.0f, (float) elapsedMs / trackDurationMs);
-                this.bossBar.setProgress(progress);
+                this.bossBar.setPercent(progress);
             }
 
             // set to player in range
-            HashSet<ServerPlayer> nearbyPlayers = new HashSet<>();
-            for (ServerPlayer player : serverLevel.players()) {
+            HashSet<ServerPlayerEntity> nearbyPlayers = new HashSet<>();
+            for (ServerPlayerEntity player : serverWorld.getPlayers()) {
 
-                if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
+                if (player.getPos().distanceTo(Vec3d.ofBottomCenter(position)) <= getOutputChannelRange()) {
                     nearbyPlayers.add(player);
                 }
             }
 
             // remove if no longer near
-            for (ServerPlayer player : this.bossBar.getPlayers()) {
+            for (ServerPlayerEntity player : this.bossBar.getPlayers()) {
                 if (!nearbyPlayers.contains(player)){
                     this.bossBar.removePlayer(player);
                     //bossBarPlayers.remove(player);
@@ -404,7 +404,7 @@ public class RadioStream implements Supplier<short[]> {
             }
 
             // add if near
-            for (ServerPlayer player : nearbyPlayers) {
+            for (ServerPlayerEntity player : nearbyPlayers) {
                 if (!this.bossBar.getPlayers().contains(player)) {
                     bossBar.addPlayer(player);
                     //bossBarPlayers.add((de.maxhenkel.voicechat.api.ServerPlayer) player);
@@ -414,11 +414,11 @@ public class RadioStream implements Supplier<short[]> {
     }
 
     private void sendMessageProximity(String msg) {
-        Component message = Component.literal(msg);
-        serverLevel.getServer().execute(() -> {
-            for (ServerPlayer player : serverLevel.players()) {
-                if (player.position().distanceTo(Vec3.atBottomCenterOf(position)) <= getOutputChannelRange()) {
-                    player.sendSystemMessage(message);
+        Text message = Text.literal(msg);
+        serverWorld.getServer().execute(() -> {
+            for (ServerPlayerEntity player : serverWorld.getPlayers()) {
+                if (player.getPos().distanceTo(Vec3d.ofBottomCenter(position)) <= getOutputChannelRange()) {
+                    player.sendMessage(message);
                 }
             }
         });
@@ -447,7 +447,7 @@ public class RadioStream implements Supplier<short[]> {
         }
 
         if (this.bossBar != null){
-            this.bossBar.removeAllPlayers();
+            this.bossBar.clearPlayers();
             this.bossBar = null;
         }
 
@@ -478,13 +478,13 @@ public class RadioStream implements Supplier<short[]> {
             return;
         }
         lastParticle = time;
-        serverLevel.getServer().execute(() -> {
-            Vec3 vec3 = Vec3.atBottomCenterOf(position).add(0D, 1D, 0D);
-            serverLevel.players().stream()
-                    .filter(player -> player.position().distanceTo(position.getCenter()) <= 32D)
+        serverWorld.getServer().execute(() -> {
+            Vec3d vec3d = Vec3d.ofBottomCenter(position).add(0D, 1D, 0D);
+            serverWorld.getPlayers().stream()
+                    .filter(player -> player.getPos().distanceTo(position.toCenterPos()) <= 32D)
                     .forEach(player -> {
-                        float random = (float) serverLevel.getRandom().nextInt(4) / 24F;
-                        serverLevel.sendParticles(ParticleTypes.NOTE, vec3.x(), vec3.y(), vec3.z(), 0, random, 0D, 0D, 1D);
+                        float random = (float) serverWorld.getRandom().nextInt(4) / 24F;
+                        serverWorld.spawnParticles(ParticleTypes.NOTE, vec3d.x, vec3d.y, vec3d.z, 0, random, 0D, 0D, 1D);
                     });
         });
     }
@@ -497,8 +497,8 @@ public class RadioStream implements Supplier<short[]> {
             return;
         }
         lastCheck = time;
-        serverLevel.getServer().execute(() -> {
-            if (!RadioManager.isValidRadioLocation(id, position, serverLevel)) {
+        serverWorld.getServer().execute(() -> {
+            if (!RadioManager.isValidRadioLocation(id, position, serverWorld)) {
                 RadioManager.getInstance().stopStream(id);
                 Radio.LOGGER.warn("Stopped radio stream {} as it doesn't exist anymore", id);
             }
@@ -514,8 +514,8 @@ public class RadioStream implements Supplier<short[]> {
         return position;
     }
 
-    public ServerLevel getServerLevel() {
-        return serverLevel;
+    public ServerWorld getServerWorld() {
+        return serverWorld;
     }
 
     public RadioData getRadioData() {

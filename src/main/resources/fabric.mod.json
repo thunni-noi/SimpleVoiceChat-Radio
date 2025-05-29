@@ -23,6 +23,11 @@
       "de.maxhenkel.radio.components.RadioSettingComponents"
     ]
   },
+  "custom": {
+    "cardinal-components" : [
+      "radio:overlay_settings"
+    ]
+  },
   "mixins": [
     "radio.mixins.json"
   ],

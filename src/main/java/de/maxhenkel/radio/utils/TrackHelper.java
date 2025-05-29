@@ -81,8 +81,8 @@ public class TrackHelper {
 
     public Track get_random_track(){
         if (this.mp3_lists != null) {
-            int index = track_randomizer.nextInt(this.mp3_lists.length);
-            return (this.tracks_allLoaded.get(index));
+            int index = track_randomizer.nextInt(this.tracks_enabled.size());
+            return (this.tracks_enabled.get(index));
         }
         Radio.LOGGER.error("MP3 Folder hasn't load yet!");
         return null;

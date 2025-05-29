@@ -2,8 +2,8 @@ package de.maxhenkel.radio.events;
 
 import de.maxhenkel.radio.radio.RadioManager;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.chunk.WorldChunk;
 
 public class LifecycleEvents {
 
@@ -11,7 +11,7 @@ public class LifecycleEvents {
         RadioManager.getInstance().clear();
     }
 
-    public static void onChunkUnload(ServerLevel serverLevel, LevelChunk levelChunk) {
-        RadioManager.getInstance().onChunkUnload(serverLevel, levelChunk);
+    public static void onChunkUnload(ServerWorld serverWorld, WorldChunk worldChunk) {
+        RadioManager.getInstance().onChunkUnload(serverWorld, worldChunk);
     }
 }

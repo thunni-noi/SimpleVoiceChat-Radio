@@ -8,22 +8,23 @@ import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import com.mojang.util.UUIDTypeAdapter;
 import de.maxhenkel.radio.Radio;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.text.Style;
+import net.minecraft.util.Formatting;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtHelper;
+import net.minecraft.nbt.NbtString;
+import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
 import net.minecraft.util.Unit;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.PlayerHeadItem;
-import net.minecraft.world.item.component.ItemLore;
-import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.item.component.TooltipDisplay;
-import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.item.PlayerHeadItem;
+import net.minecraft.component.type.LoreComponent;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.component.type.TooltipDisplayComponent;
+import net.minecraft.block.entity.BlockEntityType;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -32,23 +33,20 @@ public class HeadUtils {
 
     public static final String NBT_SOUND_RANGE = "sound_radius";
 
-    public static ItemStack createHead(String itemName, List<Component> loreComponents, GameProfile gameProfile) {
+    public static ItemStack createHead(String itemName, List<Text> loreComponents, GameProfile gameProfile) {
         ItemStack stack = new ItemStack(Items.PLAYER_HEAD);
 
-        MutableComponent nameComponent = Component.literal(itemName).withStyle(
-                style -> style
-                        .withItalic(false)
-                        .withColor(ChatFormatting.WHITE)
+        MutableText nameText = Text.literal(itemName).setStyle(
+                Style.EMPTY.withItalic(false).withColor(Formatting.WHITE)
         );
 
-        ItemLore lore = new ItemLore(loreComponents);
-        ResolvableProfile resolvableProfile = new ResolvableProfile(gameProfile);
+        LoreComponent lore = new LoreComponent(loreComponents);
+        ProfileComponent resolvableProfile = new ProfileComponent(gameProfile);
 
-        stack.set(DataComponents.ITEM_NAME, nameComponent);
-        stack.set(DataComponents.LORE, lore);
-        //stack.set(DataComponents.HIDE_ADDITIONAL_TOOLTIP, Unit.INSTANCE); // why not a boolean? uhm?
-        //stack.set(DataComponents.TOOLTIP_DISPLAY, new TooltipDisplay(true, new LinkedHashSet<>()));
-        stack.set(DataComponents.PROFILE, resolvableProfile);
+        stack.set(DataComponentTypes.ITEM_NAME, nameText);
+        stack.set(DataComponentTypes.LORE, lore);
+        stack.set(DataComponentTypes.TOOLTIP_DISPLAY, new TooltipDisplayComponent(true, new LinkedHashSet<>()));
+        stack.set(DataComponentTypes.PROFILE, resolvableProfile);
 
         return stack;
     }

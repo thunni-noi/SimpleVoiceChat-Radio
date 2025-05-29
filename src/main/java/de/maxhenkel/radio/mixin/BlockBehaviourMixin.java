@@ -3,30 +3,30 @@ package de.maxhenkel.radio.mixin;
 import com.mojang.authlib.GameProfile;
 import de.maxhenkel.radio.radio.RadioData;
 import de.maxhenkel.radio.radio.RadioManager;
-import net.minecraft.core.BlockPos;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.SkullBlockEntity;
-import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.util.ActionResult;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.world.World;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.SkullBlockEntity;
+import net.minecraft.block.AbstractBlock;
+import net.minecraft.block.BlockState;
+import net.minecraft.util.hit.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(BlockBehaviour.class)
+@Mixin(AbstractBlock.class)
 public class BlockBehaviourMixin {
 
-    @Inject(method = "useWithoutItem", at = @At("HEAD"), cancellable = true)
-    public void use(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult, CallbackInfoReturnable<InteractionResult> cir) {
-        if (level.isClientSide())
+    @Inject(method = "onUse", at = @At("HEAD"), cancellable = true)
+    public void use(BlockState blockState, World level, BlockPos blockPos, PlayerEntity player, BlockHitResult blockHitResult, CallbackInfoReturnable<ActionResult> cir) {
+        if (level.isClient())
             return;
 
         boolean isNotPlayerHeadBlock = !blockState.getBlock().equals(Blocks.PLAYER_HEAD) &&
@@ -39,7 +39,7 @@ public class BlockBehaviourMixin {
         if (!(blockEntity instanceof SkullBlockEntity skullBlockEntity))
             return;
 
-        ResolvableProfile resolvable = skullBlockEntity.getOwnerProfile();
+        ProfileComponent resolvable = skullBlockEntity.getOwner();
 
         if(resolvable == null) return;
 
@@ -51,12 +51,12 @@ public class BlockBehaviourMixin {
 
         radioData.setOn(!radioData.isOn());
         radioData.updateProfile(profile);
-        skullBlockEntity.setChanged();
+        skullBlockEntity.markDirty();
         RadioManager.getInstance().updateHeadOnState(radioData.getId(), radioData.isOn());
 
-        level.playSound(null, blockPos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 1F, 1F);
+        level.playSound(null, blockPos, SoundEvents.BLOCK_LEVER_CLICK, SoundCategory.BLOCKS, 1F, 1F);
 
-        cir.setReturnValue(InteractionResult.SUCCESS);
+        cir.setReturnValue(ActionResult.SUCCESS);
     }
 
 }

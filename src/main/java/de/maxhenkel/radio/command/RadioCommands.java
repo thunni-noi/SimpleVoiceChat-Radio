@@ -9,26 +9,26 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import de.maxhenkel.radio.Radio;
 import de.maxhenkel.radio.radio.RadioData;
 import de.maxhenkel.voicechat.api.Player;
-import net.minecraft.commands.CommandBuildContext;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.command.CommandRegistryAccess;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.UUID;
 
 public class RadioCommands {
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext ctx, Commands.CommandSelection environment) {
-        LiteralArgumentBuilder<CommandSourceStack> literalBuilder = Commands.literal("radio")
-                .requires((commandSource) -> commandSource.hasPermission(Radio.SERVER_CONFIG.commandPermissionLevel.get()));
+    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess cra, CommandManager.RegistrationEnvironment environment) {
+        LiteralArgumentBuilder<ServerCommandSource> literalBuilder = CommandManager.literal("radio")
+                .requires((commandSource) -> commandSource.hasPermissionLevel(Radio.SERVER_CONFIG.commandPermissionLevel.get()));
 
         literalBuilder.then(
-            Commands.literal("create")
+            CommandManager.literal("create")
                     .then(
-                            Commands.argument("station_name", StringArgumentType.string())
+                            CommandManager.argument("station_name", StringArgumentType.string())
                                     .executes(RadioCommands::runWithoutRange)
                                     .then(
-                                        Commands.argument("sound_radius", FloatArgumentType.floatArg(0.0f))
+                                        CommandManager.argument("sound_radius", FloatArgumentType.floatArg(0.0f))
                                         .executes(RadioCommands::runWithRange)
                                     )
                         )
@@ -39,25 +39,25 @@ public class RadioCommands {
     }
 
 
-    private static int runWithRange(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int runWithRange(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         String stationName = StringArgumentType.getString(context, "station_name");
         float soundRadius = FloatArgumentType.getFloat(context, "sound_radius");
-        ServerPlayer player = context.getSource().getPlayerOrException();
+        ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
 
         return runCommand(stationName, player, soundRadius);
     }
 
-    private static int runWithoutRange(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int runWithoutRange(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         String stationName = StringArgumentType.getString(context, "station_name");
-        ServerPlayer player = context.getSource().getPlayerOrException();
+        ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
 
         return RadioCommands.runCommand(stationName, player, -1.0f);
     }
 
 
-    private static int runCommand(String stationName, ServerPlayer player, float range) {
+    private static int runCommand(String stationName, ServerPlayerEntity player, float range) {
         RadioData radioData = new RadioData(UUID.randomUUID(), stationName, false, range);
-        player.getInventory().add(radioData.toItemWithNoId());
+        player.getInventory().insertStack(radioData.toItemWithNoId());
         return 1;
     }
 
